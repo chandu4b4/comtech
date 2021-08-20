@@ -1,0 +1,19 @@
+---
+- name: restore backed-up gerrit war
+  copy:
+    src: /opt/data/gerrit/gerrit2/review_site/bin/gerrit.war.{{ ansible_date_time.date }} 
+    dest: /opt/data/gerrit/gerrit2/review_site/bin/gerrit.war
+    owner: gerrit2
+    group: gerrit2
+    mode: '0664'
+  register: backup-result
+  tags: rollback
+
+- name : restart gerrit
+  become_user: gerrit2
+  shell: sh /opt/data/gerrit/gerrit2/review_site/bin/gerrit.sh restart
+  register: restart_gerrit
+  tags: restart_gerrit
+- debug:
+     msg: "{{ restart_gerrit }}"
+

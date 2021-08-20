@@ -1,0 +1,69 @@
+- hosts: all
+  become: true
+  any_errors_fatal: true
+  vars:
+    ansible_become_pass: "{{ sudo_pass }}"
+  vars_files:
+    - variables.yaml
+
+  tasks:
+  - name: Fetching new gerrit war
+    get_url:
+      url: "{{ gerrit_download_url }}"
+      dest: /tmp/
+    register: gerrit_download_result
+    tags: gerrit_download
+  - debug:
+      msg:
+        - "downloading {{ gerrit_download_result }}"
+    when: gerrit_download_result is defined
+    tags: gerrit_download
+
+  - name : Backup the current gerrit.war file
+    copy:
+      src: /opt/data/gerrit/gerrit2/review_site/bin/gerrit.war
+      dest: /opt/data/gerrit/gerrit2/review_site/bin/gerrit.war.{{ ansible_date_time.date }}
+    register: backup_gerrit_war
+    tags: backup_gerrit_war
+  - debug:
+       msg: "{{ backup_gerrit_war }}"
+
+  - name : copy the new gerrit.war file
+    copy:
+      src: /tmp/gerrit-2.14.20.war
+      dest: /opt/data/gerrit/gerrit2/review_site/bin/gerrit.war
+      owner: gerrit2
+      group: gerrit2
+      mode: '0664'
+    register: copy_gerrit_war
+    tags: copy_gerrit_war
+  - debug:
+       msg: "{{ copy_gerrit_war }}"
+
+  - name : restart gerrit
+    become_user: gerrit2
+    shell: sh /opt/data/gerrit/gerrit2/review_site/bin/gerrit.sh restart
+    register: restart_gerrit
+    tags: restart_gerrit
+  - debug:
+       msg: "{{ restart_gerrit }}"
+
+  - name : Check gerrit
+    become_user: gerrit2
+    shell: sh /opt/data/gerrit/gerrit2/review_site/bin/gerrit.sh status
+    register: gerrit_status
+    tags: gerrit_status
+  - debug:
+       msg: "gerrit not runnig !."
+    when: 
+       - "Gerrit running pid" not in gerrit_status.stdout
+
+  - include: rollback.yml
+    when: "Gerrit running pid" not in gerrit_status.stdout
+    register: rollback_result
+    tags:
+       - rollback_war_file
+
+
+
+
